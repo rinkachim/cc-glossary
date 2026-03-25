@@ -18,20 +18,37 @@ function parseGlossary(text) {
   for (const block of blocks) {
     const lines = block.trim().split("\n");
     const term = lines[0].trim();
-    const rest = lines.slice(1).join("\n").trim();
+    const restLines = lines.slice(1);
 
-    // 一言説明（最初の段落）
-    const summaryMatch = rest.match(/^([^*\n][^\n]+)/);
-    const summary = summaryMatch ? summaryMatch[1].trim() : "";
+    // 一言説明（**【 で始まらない最初の非空行）
+    const summaryLine = restLines.find(l => l.trim() && !l.startsWith("**【"));
+    const summary = summaryLine ? summaryLine.trim() : "";
 
-    // セクションを抽出
+    // セクションを行単位で抽出
     const sections = [];
-    const sectionRegex = /\*\*【(.+?)】\*\*\n([\s\S]*?)(?=\n\*\*【|\s*$)/g;
-    let m;
-    while ((m = sectionRegex.exec(rest)) !== null) {
-      const label = SECTION_LABELS[m[1]] || m[1];
-      const content = m[2].trim();
-      sections.push({ label, content });
+    let currentLabel = null;
+    let currentLines = [];
+
+    for (const line of restLines) {
+      const m = line.match(/^\*\*【(.+?)】\*\*$/);
+      if (m) {
+        if (currentLabel !== null) {
+          sections.push({
+            label: SECTION_LABELS[currentLabel] || currentLabel,
+            content: currentLines.join("\n").trim()
+          });
+        }
+        currentLabel = m[1];
+        currentLines = [];
+      } else if (currentLabel !== null) {
+        currentLines.push(line);
+      }
+    }
+    if (currentLabel !== null) {
+      sections.push({
+        label: SECTION_LABELS[currentLabel] || currentLabel,
+        content: currentLines.join("\n").trim()
+      });
     }
 
     entries.push({ term, summary, sections });
