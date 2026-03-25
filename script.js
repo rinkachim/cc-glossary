@@ -5,6 +5,19 @@ const SECTION_LABELS = {
   "あなたが知っておくべきこと": "知っておくべきこと"
 };
 
+const POPULAR_KEY = "glossary_clicks";
+
+function getClicks() {
+  try { return JSON.parse(localStorage.getItem(POPULAR_KEY) || "{}"); }
+  catch { return {}; }
+}
+
+function recordClick(term) {
+  const clicks = getClicks();
+  clicks[term] = (clicks[term] || 0) + 1;
+  localStorage.setItem(POPULAR_KEY, JSON.stringify(clicks));
+}
+
 async function loadGlossary() {
   const res = await fetch("glossary.md");
   const text = await res.text();
@@ -20,8 +33,15 @@ function parseGlossary(text) {
     const term = lines[0].trim();
     const restLines = lines.slice(1);
 
-    // 一言説明（**【 で始まらない最初の非空行）
-    const summaryLine = restLines.find(l => l.trim() && !l.startsWith("**【"));
+    // category行
+    const categoryLine = restLines.find(l => l.trim().startsWith("category:"));
+    const category = categoryLine ? categoryLine.replace("category:", "").trim() : "その他";
+
+    // 一言説明（category行・空行・**【 以外の最初の行）
+    const summaryLine = restLines.find(l => {
+      const t = l.trim();
+      return t && !t.startsWith("category:") && !t.startsWith("**【");
+    });
     const summary = summaryLine ? summaryLine.trim() : "";
 
     // セクションを行単位で抽出
@@ -51,23 +71,25 @@ function parseGlossary(text) {
       });
     }
 
-    entries.push({ term, summary, sections });
+    entries.push({ term, category, summary, sections });
   }
 
   return entries;
 }
 
-function renderCard(entry) {
+function renderCard(entry, mini = false) {
   const card = document.createElement("div");
   card.className = "card";
   card.dataset.term = entry.term.toLowerCase();
   card.dataset.summary = entry.summary.toLowerCase();
+  card.dataset.category = entry.category;
 
   const header = document.createElement("div");
   header.className = "card-header";
 
   const info = document.createElement("div");
   info.innerHTML = `
+    <div class="card-meta"><span class="card-category">${entry.category}</span></div>
     <div class="card-title">${entry.term}</div>
     <div class="card-summary">${entry.summary}</div>
   `;
@@ -110,31 +132,99 @@ function renderCard(entry) {
 
   card.addEventListener("click", () => {
     card.classList.toggle("open");
+    recordClick(entry.term);
   });
 
   return card;
 }
 
-function filterCards(query, cards) {
+function renderCategoryChips(entries, onSelect) {
+  const categories = ["すべて", ...new Set(entries.map(e => e.category))];
+  const wrap = document.getElementById("category-chips");
+  wrap.innerHTML = "";
+  categories.forEach(cat => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (cat === "すべて" ? " active" : "");
+    chip.textContent = cat;
+    chip.addEventListener("click", () => {
+      wrap.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      onSelect(cat === "すべて" ? null : cat);
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+function renderRecentSection(entries) {
+  const section = document.getElementById("recent-section");
+  const grid = document.getElementById("recent-cards");
+  grid.innerHTML = "";
+  const recent = entries.slice(-4).reverse();
+  recent.forEach(e => grid.appendChild(renderCard(e)));
+  section.style.display = recent.length ? "" : "none";
+}
+
+function renderPopularSection(entries) {
+  const section = document.getElementById("popular-section");
+  const grid = document.getElementById("popular-cards");
+  grid.innerHTML = "";
+  const clicks = getClicks();
+  const popular = entries
+    .filter(e => clicks[e.term])
+    .sort((a, b) => (clicks[b.term] || 0) - (clicks[a.term] || 0))
+    .slice(0, 4);
+  popular.forEach(e => grid.appendChild(renderCard(e)));
+  section.style.display = popular.length ? "" : "none";
+}
+
+function filterCards(query, categoryFilter, allCards) {
   const q = query.toLowerCase();
   let visible = 0;
-  for (const card of cards) {
-    const match = !q || card.dataset.term.includes(q) || card.dataset.summary.includes(q);
-    card.style.display = match ? "" : "none";
+  for (const card of allCards) {
+    const matchQuery = !q || card.dataset.term.includes(q) || card.dataset.summary.includes(q);
+    const matchCat = !categoryFilter || card.dataset.category === categoryFilter;
+    const show = matchQuery && matchCat;
+    card.style.display = show ? "" : "none";
     card.classList.remove("open");
-    if (match) visible++;
+    if (show) visible++;
   }
   document.getElementById("empty").style.display = visible === 0 ? "block" : "none";
 }
 
 async function init() {
-  const main = document.getElementById("cards");
-  const search = document.getElementById("search");
   const entries = await loadGlossary();
-  const cards = entries.map(renderCard);
-  cards.forEach(c => main.appendChild(c));
+  const cardsGrid = document.getElementById("cards");
+  const search = document.getElementById("search");
 
-  search.addEventListener("input", () => filterCards(search.value, cards));
+  let currentCategory = null;
+
+  // 全カードを描画
+  const allCards = entries.map(e => renderCard(e));
+  allCards.forEach(c => cardsGrid.appendChild(c));
+
+  // カテゴリチップ
+  renderCategoryChips(entries, cat => {
+    currentCategory = cat;
+    filterCards(search.value, currentCategory, allCards);
+    toggleSections(search.value, currentCategory);
+  });
+
+  // 最近追加・よく開かれた
+  renderRecentSection(entries);
+  renderPopularSection(entries);
+
+  // 検索
+  search.addEventListener("input", () => {
+    filterCards(search.value, currentCategory, allCards);
+    toggleSections(search.value, currentCategory);
+  });
+
+  function toggleSections(query, cat) {
+    const hide = query || cat;
+    document.getElementById("recent-section").style.display = hide ? "none" : "";
+    document.getElementById("popular-section").style.display =
+      (hide || !Object.keys(getClicks()).length) ? "none" : "";
+  }
 }
 
 init();

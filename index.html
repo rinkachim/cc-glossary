@@ -10,11 +10,23 @@
   <header>
     <h1>テック用語辞典</h1>
     <input type="search" id="search" placeholder="用語を検索..." autocomplete="off">
+    <div id="category-chips"></div>
   </header>
   <main>
-    <div id="cards"></div>
-    <div id="empty">見つかりませんでした</div>
+    <section id="recent-section">
+      <h2 class="section-title">最近追加</h2>
+      <div id="recent-cards" class="cards-grid"></div>
+    </section>
+    <section id="popular-section" style="display:none">
+      <h2 class="section-title">よく開かれた用語</h2>
+      <div id="popular-cards" class="cards-grid"></div>
+    </section>
+    <section id="all-section">
+      <h2 class="section-title">すべての用語</h2>
+      <div id="cards" class="cards-grid"></div>
+      <div id="empty">見つかりませんでした</div>
+    </section>
   </main>
-  <script src="script.js?v=3"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
