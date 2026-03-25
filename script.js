@@ -121,6 +121,7 @@ function filterCards(query, cards) {
   for (const card of cards) {
     const match = !q || card.dataset.term.includes(q) || card.dataset.summary.includes(q);
     card.style.display = match ? "" : "none";
+    card.classList.remove("open");
     if (match) visible++;
   }
   document.getElementById("empty").style.display = visible === 0 ? "block" : "none";
