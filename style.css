@@ -114,11 +114,11 @@ header {
   position: sticky;
   top: 84px;
   margin-top: 23px;
-  background: #f0f4f8;
+  background: #e8eeea;
   border-radius: 12px;
   padding: 16px;
   box-shadow: none;
-  border: 1px solid #dce4ed;
+  border: 1px solid #c8d4cc;
   display: flex;
   flex-direction: column;
   gap: 20px;
