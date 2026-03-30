@@ -33,18 +33,15 @@ function parseGlossary(text) {
     const term = lines[0].trim();
     const restLines = lines.slice(1);
 
-    // category行
     const categoryLine = restLines.find(l => l.trim().startsWith("category:"));
     const category = categoryLine ? categoryLine.replace("category:", "").trim() : "その他";
 
-    // 一言説明（category行・空行・**【 以外の最初の行）
     const summaryLine = restLines.find(l => {
       const t = l.trim();
       return t && !t.startsWith("category:") && !t.startsWith("**【");
     });
     const summary = summaryLine ? summaryLine.trim() : "";
 
-    // セクションを行単位で抽出
     const sections = [];
     let currentLabel = null;
     let currentLines = [];
@@ -77,37 +74,55 @@ function parseGlossary(text) {
   return entries;
 }
 
-function renderCard(entry, mini = false) {
+// 一覧用カード（<a>タグでCmd+クリック対応）
+function renderCard(entry) {
   const card = document.createElement("div");
   card.className = "card";
   card.dataset.term = entry.term.toLowerCase();
   card.dataset.summary = entry.summary.toLowerCase();
   card.dataset.category = entry.category;
 
-  const header = document.createElement("div");
-  header.className = "card-header";
-
-  const info = document.createElement("div");
-  info.innerHTML = `
-    <div class="card-meta"><span class="card-category">${entry.category}</span></div>
-    <div class="card-title">${entry.term}</div>
-    <div class="card-summary">${entry.summary}</div>
+  const link = document.createElement("a");
+  link.className = "card-link";
+  link.href = "#" + encodeURIComponent(entry.term);
+  link.innerHTML = `
+    <div>
+      <div class="card-meta"><span class="card-category">${entry.category}</span></div>
+      <div class="card-title">${entry.term}</div>
+      <div class="card-summary">${entry.summary}</div>
+    </div>
+    <div class="card-chevron">&#x203A;</div>
   `;
 
-  const chevron = document.createElement("div");
-  chevron.className = "card-chevron";
-  chevron.textContent = "▼";
+  link.addEventListener("click", () => {
+    recordClick(entry.term);
+  });
 
-  header.appendChild(info);
-  header.appendChild(chevron);
+  card.appendChild(link);
+  return card;
+}
 
-  const body = document.createElement("div");
-  body.className = "card-body";
+// 詳細ページを描画
+function renderDetailPage(entry) {
+  const container = document.getElementById("detail-content");
+  container.innerHTML = "";
+
+  const header = document.createElement("div");
+  header.className = "detail-header";
+  header.innerHTML = `
+    <span class="card-category">${entry.category}</span>
+    <h2 class="detail-title">${entry.term}</h2>
+    <p class="detail-summary">${entry.summary}</p>
+  `;
+  container.appendChild(header);
 
   for (const section of entry.sections) {
+    const sectionEl = document.createElement("div");
+    sectionEl.className = "detail-section";
+
     const h3 = document.createElement("h3");
     h3.textContent = section.label;
-    body.appendChild(h3);
+    sectionEl.appendChild(h3);
 
     const lines = section.content.split("\n");
     if (lines.some(l => l.startsWith("- "))) {
@@ -119,23 +134,27 @@ function renderCard(entry, mini = false) {
           ul.appendChild(li);
         }
       }
-      body.appendChild(ul);
+      sectionEl.appendChild(ul);
     } else {
       const p = document.createElement("p");
       p.innerHTML = section.content.replace(/`([^`]+)`/g, "<code>$1</code>");
-      body.appendChild(p);
+      sectionEl.appendChild(p);
     }
+
+    container.appendChild(sectionEl);
   }
+}
 
-  card.appendChild(header);
-  card.appendChild(body);
-
-  card.addEventListener("click", () => {
-    card.classList.toggle("open");
+// サイドバーアイテム（<a>タグでCmd+クリック対応）
+function renderSidebarItem(entry) {
+  const item = document.createElement("a");
+  item.className = "sidebar-item";
+  item.href = "#" + encodeURIComponent(entry.term);
+  item.innerHTML = `<span class="card-category">${entry.category}</span><span class="sidebar-term">${entry.term}</span>`;
+  item.addEventListener("click", () => {
     recordClick(entry.term);
   });
-
-  return card;
+  return item;
 }
 
 function renderCategoryChips(entries, onSelect) {
@@ -147,6 +166,10 @@ function renderCategoryChips(entries, onSelect) {
     chip.className = "chip" + (cat === "すべて" ? " active" : "");
     chip.textContent = cat;
     chip.addEventListener("click", () => {
+      // カテゴリ選択時は一覧に戻る
+      if (location.hash) {
+        history.pushState(null, "", location.pathname);
+      }
       wrap.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
       onSelect(cat === "すべて" ? null : cat);
@@ -155,26 +178,24 @@ function renderCategoryChips(entries, onSelect) {
   });
 }
 
-function renderRecentSection(entries) {
-  const section = document.getElementById("recent-section");
-  const grid = document.getElementById("recent-cards");
-  grid.innerHTML = "";
-  const recent = entries.slice(-4).reverse();
-  recent.forEach(e => grid.appendChild(renderCard(e)));
-  section.style.display = recent.length ? "" : "none";
-}
+function renderSidebar(entries, prefix) {
+  const recentSection = document.getElementById(prefix + "recent-section");
+  const recentGrid = document.getElementById(prefix + "recent-cards");
+  recentGrid.innerHTML = "";
+  const recent = entries.slice(-5).reverse();
+  recent.forEach(e => recentGrid.appendChild(renderSidebarItem(e)));
+  recentSection.style.display = recent.length ? "" : "none";
 
-function renderPopularSection(entries) {
-  const section = document.getElementById("popular-section");
-  const grid = document.getElementById("popular-cards");
-  grid.innerHTML = "";
+  const popularSection = document.getElementById(prefix + "popular-section");
+  const popularGrid = document.getElementById(prefix + "popular-cards");
+  popularGrid.innerHTML = "";
   const clicks = getClicks();
   const popular = entries
     .filter(e => clicks[e.term])
     .sort((a, b) => (clicks[b.term] || 0) - (clicks[a.term] || 0))
-    .slice(0, 4);
-  popular.forEach(e => grid.appendChild(renderCard(e)));
-  section.style.display = popular.length ? "" : "none";
+    .slice(0, 5);
+  popular.forEach(e => popularGrid.appendChild(renderSidebarItem(e)));
+  popularSection.style.display = popular.length ? "" : "none";
 }
 
 function filterCards(query, categoryFilter, allCards) {
@@ -185,10 +206,26 @@ function filterCards(query, categoryFilter, allCards) {
     const matchCat = !categoryFilter || card.dataset.category === categoryFilter;
     const show = matchQuery && matchCat;
     card.style.display = show ? "" : "none";
-    card.classList.remove("open");
     if (show) visible++;
   }
   document.getElementById("empty").style.display = visible === 0 ? "block" : "none";
+}
+
+// ビュー切り替え
+function showListView() {
+  document.getElementById("list-view").style.display = "";
+  document.getElementById("detail-view").style.display = "none";
+  document.title = "テック用語辞典";
+  window.scrollTo(0, 0);
+}
+
+function showDetailView(entry, entries) {
+  document.getElementById("list-view").style.display = "none";
+  document.getElementById("detail-view").style.display = "";
+  document.title = `${entry.term} - テック用語辞典`;
+  renderDetailPage(entry);
+  renderSidebar(entries, "detail-");
+  window.scrollTo(0, 0);
 }
 
 async function init() {
@@ -198,33 +235,42 @@ async function init() {
 
   let currentCategory = null;
 
-  // 全カードを描画
   const allCards = entries.map(e => renderCard(e));
   allCards.forEach(c => cardsGrid.appendChild(c));
 
-  // カテゴリチップ
   renderCategoryChips(entries, cat => {
     currentCategory = cat;
     filterCards(search.value, currentCategory, allCards);
-    toggleSections(search.value, currentCategory);
   });
 
-  // 最近追加・よく開かれた
-  renderRecentSection(entries);
-  renderPopularSection(entries);
+  renderSidebar(entries, "");
 
-  // 検索
+  // 検索（詳細ページにいたら一覧に戻る）
   search.addEventListener("input", () => {
+    if (location.hash) {
+      history.pushState(null, "", location.pathname);
+      showListView();
+    }
     filterCards(search.value, currentCategory, allCards);
-    toggleSections(search.value, currentCategory);
   });
 
-  function toggleSections(query, cat) {
-    const hide = query || cat;
-    document.getElementById("recent-section").style.display = hide ? "none" : "";
-    document.getElementById("popular-section").style.display =
-      (hide || !Object.keys(getClicks()).length) ? "none" : "";
+  // ハッシュルーティング
+  function handleRoute() {
+    const hash = decodeURIComponent(location.hash.slice(1));
+    if (hash) {
+      const entry = entries.find(e => e.term === hash);
+      if (entry) {
+        showDetailView(entry, entries);
+        return;
+      }
+    }
+    showListView();
+    renderSidebar(entries, "");
   }
+
+  window.addEventListener("hashchange", handleRoute);
+  window.addEventListener("popstate", handleRoute);
+  handleRoute();
 }
 
 init();

@@ -4,29 +4,58 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>テック用語辞典</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header>
-    <h1>テック用語辞典</h1>
-    <input type="search" id="search" placeholder="用語を検索..." autocomplete="off">
+    <div class="header-row">
+      <a href="#" class="header-title">テック用語辞典</a>
+      <input type="search" id="search" placeholder="用語を検索..." autocomplete="off">
+    </div>
     <div id="category-chips"></div>
   </header>
-  <main>
-    <section id="recent-section">
-      <h2 class="section-title">最近追加</h2>
-      <div id="recent-cards" class="cards-grid"></div>
-    </section>
-    <section id="popular-section" style="display:none">
-      <h2 class="section-title">よく開かれた用語</h2>
-      <div id="popular-cards" class="cards-grid"></div>
-    </section>
-    <section id="all-section">
-      <h2 class="section-title">すべての用語</h2>
-      <div id="cards" class="cards-grid"></div>
-      <div id="empty">見つかりませんでした</div>
-    </section>
-  </main>
-  <script src="script.js?v=4"></script>
+
+  <!-- 一覧ビュー -->
+  <div id="list-view" class="page-layout">
+    <main class="content-area">
+      <section id="all-section">
+        <h2 class="section-title">すべての用語</h2>
+        <div id="cards" class="cards-grid"></div>
+        <div id="empty">見つかりませんでした</div>
+      </section>
+    </main>
+    <aside class="sidebar">
+      <section id="recent-section">
+        <h2 class="sidebar-section-title">最近追加</h2>
+        <div id="recent-cards" class="sidebar-cards"></div>
+      </section>
+      <section id="popular-section" style="display:none">
+        <h2 class="sidebar-section-title">よく聞かれた用語</h2>
+        <div id="popular-cards" class="sidebar-cards"></div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- 詳細ビュー -->
+  <div id="detail-view" class="page-layout" style="display:none">
+    <main class="content-area">
+      <div class="detail-container">
+        <a href="#" id="back-btn">&larr; 一覧に戻る</a>
+        <div id="detail-content"></div>
+      </div>
+    </main>
+    <aside class="sidebar">
+      <section id="detail-recent-section">
+        <h2 class="sidebar-section-title">最近追加</h2>
+        <div id="detail-recent-cards" class="sidebar-cards"></div>
+      </section>
+      <section id="detail-popular-section" style="display:none">
+        <h2 class="sidebar-section-title">よく聞かれた用語</h2>
+        <div id="detail-popular-cards" class="sidebar-cards"></div>
+      </section>
+    </aside>
+  </div>
+
+  <script src="script.js?v=10"></script>
 </body>
 </html>
