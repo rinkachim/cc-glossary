@@ -19,7 +19,7 @@ function recordClick(term) {
 }
 
 async function loadGlossary() {
-  const res = await fetch("glossary.md");
+  const res = await fetch("glossary.md?v=" + Date.now());
   const text = await res.text();
   return parseGlossary(text);
 }
